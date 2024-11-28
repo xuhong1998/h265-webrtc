@@ -1,18 +1,28 @@
 let rtcPeerConnection = null;
 const initRtcPeerConnection = () => {
-  const e = new RTCPeerConnection({
-    iceServers: [{
-      urls: 'turn:kingtopware.tpddns.cn:3478',
-      credential: 'ktw123',
-      username: 'ktw'
-    }],
-  });
+  const e = new RTCPeerConnection;
   e.addTransceiver("video", {  direction: "recvonly"  }),
   e.addTransceiver("audio", {  direction: "recvonly" }),
   e.ontrack = (e) => {
     if (e.streams.length === 0) return;
-    myVideo.srcObject = e.streams[0];
+    // myVideo.srcObject = e.streams[0];
   };
+  e.ondatachannel = (e) => {
+    console.log("data channel created");
+    console.log(e.channel);
+    const t = e.channel;
+    t.onopen = function () {
+      console.log("Data channel is open and ready to be used.");
+    };
+    t.onmessage = (e) => {
+      console.log(e.data);
+    }
+    t.onclose = () => {
+      console.log( "ondatachannel and onclose")
+    }
+  }
+  e.createDataChannel("h265");
+
   rtcPeerConnection = e;
 }
 const sendOfferToServer = (url, sdp) => {
@@ -33,12 +43,10 @@ const sendOfferToServer = (url, sdp) => {
 const loadSource = async (url) => {
   const offer = await rtcPeerConnection.createOffer();
   await rtcPeerConnection.setLocalDescription(offer);
-  sendOfferToServer(url, offer.sdp).then(response => {
-    response.text().then(data => {
-      rtcPeerConnection.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: data }));
-    });
-  });
+  const response = await sendOfferToServer(url, offer.sdp);
+  const data = await response.text();
+  rtcPeerConnection.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: data }));
 }
 
-initRtcPeerConnection();
-loadSource("http://videostream.tpddns.cn:8887/webrtc/play/1732703264196/2c2882ff7a797705017a79a265070007")
+
+export { loadSource, initRtcPeerConnection };
